@@ -172,6 +172,7 @@ jobs:
           $IMAGE_TAG \
           env -u CCACHE_DISABLE /usr/src/tdesktop/Telegram/build/docker/centos_env/build.sh \
           -D CMAKE_CONFIGURATION_TYPES=$CONFIG \
+          -D Python3_EXECUTABLE=/usr/bin/python3.11 \
           $API_DEFINES \
           -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON \
           -D DESKTOP_APP_DISABLE_CRASH_REPORTS=ON \

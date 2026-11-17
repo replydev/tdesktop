@@ -13,24 +13,16 @@ class Session;
 
 namespace Api {
 
-struct SponsoredSearchResult {
-    not_null<PeerData*> peer;
-    QByteArray randomId;
-    TextWithEntities sponsorInfo;
-    TextWithEntities additionalInfo;
-};
-
 struct PeerSearchResult {
     QString query;
     std::vector<not_null<PeerData*>> my;
     std::vector<not_null<PeerData*>> peers;
-    std::vector<SponsoredSearchResult> sponsored;
 };
 
 class PeerSearch final {
 public:
     enum class Type {
-        WithSponsored,
+        Default,
         JustPeers,
         Channels,
         Bots,
@@ -53,15 +45,12 @@ private:
         PeerSearchResult result;
         bool requested = false;
         bool peersReady = false;
-        bool sponsoredReady = false;
     };
 
     void requestPeers();
-    void requestSponsored();
 
 	void finish(PeerSearchResult result);
 	void finishPeers(mtpRequestId requestId, PeerSearchResult result);
-    void finishSponsored(mtpRequestId requestId, PeerSearchResult result);
 
     const not_null<Main::Session*> _session;
     const Type _type;
@@ -71,7 +60,6 @@ private:
 
 	base::flat_map<QString, CacheEntry> _cache;
 	base::flat_map<mtpRequestId, QString> _peerRequests;
-	base::flat_map<mtpRequestId, QString> _sponsoredRequests;
 
 };
 

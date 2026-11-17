@@ -298,11 +298,6 @@ private:
 		Fn<void(int)> withPaymentApproved);
 
 	void markLoaded();
-	void requestSponsoredMessages();
-	void injectSponsoredMessages();
-	[[nodiscard]] bool injectNextSponsoredMessage();
-	[[nodiscard]] bool appendSponsoredMessages();
-	[[nodiscard]] bool showAppendedSponsored();
 	void requestMessageData(MsgId msgId);
 	void messageDataReceived(not_null<PeerData*> peer, MsgId msgId);
 	void clearSupportPreloadRequest();
@@ -615,8 +610,6 @@ private:
 	QPointer<SendFilesBox> _sendFilesBox;
 	std::unique_ptr<Support::Autocomplete> _supportAutocomplete;
 	rpl::lifetime _topicLifetime;
-	rpl::lifetime _historySponsoredPreloading;
-	bool _injectingSponsored = false;
 
 	Ui::Controls::SwipeContextData _gestureHorizontal;
 	Ui::Controls::SwipeBackResult _swipeBackData;

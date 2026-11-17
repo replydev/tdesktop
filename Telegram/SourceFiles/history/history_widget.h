@@ -652,10 +652,6 @@ private:
 	void setupGroupCallBar();
 	void setupRequestsBar();
 
-	void checkSponsoredMessageBar();
-	[[nodiscard]] bool checkSponsoredMessageBarVisibility() const;
-	void requestSponsoredMessageBar();
-	void createSponsoredMessageBar();
 
 	void sendInlineResult(InlineBots::ResultSelected result);
 
@@ -802,7 +798,6 @@ private:
 	void refreshSendAsToggle();
 	void refreshAttachBotsMenu();
 
-	void injectSponsoredMessages() const;
 
 	bool kbWasHidden() const;
 	[[nodiscard]] bool forceReplyPending() const;
@@ -855,8 +850,6 @@ private:
 	std::unique_ptr<Ui::RequestsBar> _requestsBar;
 	int _requestsBarHeight = 0;
 
-	base::unique_qptr<Ui::SlideWrap<Ui::RpWidget>> _sponsoredMessageBar;
-	int _sponsoredMessageBarHeight = 0;
 
 	bool _preserveScrollTop = false;
 	bool _repaintFieldScheduled = false;
@@ -897,7 +890,6 @@ private:
 	History *_migrated = nullptr;
 	History *_history = nullptr;
 	mutable base::weak_ptr<Data::ForumTopic> _creatingBotTopic;
-	rpl::lifetime _historySponsoredPreloading;
 
 	// Initial updateHistoryGeometry() was called.
 	bool _historyInited = false;
@@ -1038,7 +1030,6 @@ private:
 	rpl::event_stream<> _itemsRevealHeightChanges;
 
 
-	bool _sponsoredMessagesStateKnown = false;
 	bool _justMarkingAsRead = false;
 	ChatHelpers::RichPasteOfferThrottle _richPasteOfferThrottle;
 

@@ -73,7 +73,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "storage/storage_account.h"
 #include "storage/storage_domain.h"
 #include "data/components/recent_peers.h"
-#include "data/components/sponsored_messages.h"
 #include "data/data_session.h"
 #include "data/data_channel.h"
 #include "data/data_chat.h"
@@ -250,7 +249,7 @@ Widget::Widget(
 		_storiesContents.events() | rpl::flatten_latest())
 	: nullptr)
 , _searchTimer([=] { search(); })
-, _peerSearch(&controller->session(), Api::PeerSearch::Type::WithSponsored)
+, _peerSearch(&controller->session(), Api::PeerSearch::Type::Default)
 , _singleMessageSearch(&controller->session()) {
 	const auto makeChildListShown = [](PeerId peerId, float64 shown) {
 		return InnerWidget::ChildListShown{ peerId, shown };
@@ -811,10 +810,7 @@ void Widget::setupSwipeBack() {
 void Widget::chosenRow(const ChosenRow &row) {
 	storiesToggleExplicitExpand(false);
 
-	if (!row.sponsoredRandomId.isEmpty()) {
-		auto &messages = session().sponsoredMessages();
-		messages.clicked(row.sponsoredRandomId, false, false);
-	} else if (!_searchState.query.isEmpty()) {
+	if (!_searchState.query.isEmpty()) {
 		if (const auto history = row.key.history()) {
 			session().recentPeers().bump(history->peer);
 		}

@@ -49,7 +49,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/rect.h"
 //#include "ui/round_rect.h"
 #include "data/components/factchecks.h"
-#include "data/components/sponsored_messages.h"
 #include "data/data_session.h"
 #include "data/data_user.h"
 #include "data/data_chat.h"
@@ -614,17 +613,6 @@ Message::Message(
 	auto animation = replacing ? replacing->takeEffectAnimation() : nullptr;
 	if (animation) {
 		_bottomInfo.continueEffectAnimation(std::move(animation));
-	}
-	if (data->isSponsored()) {
-		const auto &session = data->history()->session();
-		const auto details = session.sponsoredMessages().lookupDetails(
-			data->fullId());
-		if (details.canReport) {
-			_rightAction = std::make_unique<RightAction>();
-			_rightAction->second = std::make_unique<SecondRightAction>();
-
-			_rightAction->second->link = ReportSponsoredClickHandler(data);
-		}
 	}
 	initPaidInformation();
 
@@ -6204,9 +6192,7 @@ void Message::ensureRightAction() const {
 }
 
 ClickHandlerPtr Message::prepareRightActionLink() const {
-	if (data()->isSponsored()) {
-		return HideSponsoredClickHandler();
-	} else if (isPinnedContext()) {
+	if (isPinnedContext()) {
 		return JumpToMessageClickHandler(data());
 	} else if ((context() != Context::SavedSublist)
 		&& displayRightActionComments()) {

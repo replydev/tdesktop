@@ -56,7 +56,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/business/data_shortcut_messages.h"
 #include "data/components/ephemeral_messages.h"
 #include "data/components/scheduled_messages.h"
-#include "data/components/sponsored_messages.h"
 #include "data/components/welcome_messages.h"
 #include "data/notify/data_notify_settings.h"
 #include "data/data_bot_app.h"
@@ -965,49 +964,6 @@ HistoryItem::HistoryItem(
 
 	_media = std::make_unique<Data::MediaGame>(this, game);
 	setTextValue({});
-}
-
-HistoryItem::HistoryItem(
-	not_null<History*> history,
-	MsgId id,
-	Data::SponsoredFrom from,
-	const TextWithEntities &textWithEntities,
-	HistoryItem *injectedAfter)
-: HistoryItem(history, {
-	.id = id,
-	.flags = (MessageFlag::Local
-		| MessageFlag::Sponsored
-		| (history->peer->isChannel() ? MessageFlag::Post : MessageFlag(0))),
-	.date = NewMessageDate(injectedAfter ? injectedAfter->date() : 0),
-}) {
-	const auto webpage = history->peer->owner().webpage(
-		history->peer->owner().nextLocalMessageId().bare,
-		WebPageType::None,
-		from.link,
-		from.link,
-		from.isRecommended
-			? tr::lng_recommended_message_title(tr::now)
-			: tr::lng_sponsored_message_title(tr::now),
-		from.title,
-		textWithEntities,
-		(from.photoId
-			? history->owner().photo(from.photoId).get()
-			: nullptr),
-		nullptr,
-		WebPageCollage(),
-		nullptr,
-		nullptr,
-		nullptr,
-		0,
-		QString(),
-		false,
-		false,
-		0);
-	auto webpageMedia = std::make_unique<Data::MediaWebPage>(
-		this,
-		webpage,
-		MediaWebPageFlag::Sponsored);
-	_media = std::move(webpageMedia);
 }
 
 HistoryItem::HistoryItem(

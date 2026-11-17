@@ -15,7 +15,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "iv/iv_instance.h"
 #include "core/click_handler_types.h"
 #include "core/ui_integration.h"
-#include "data/components/sponsored_messages.h"
 #include "data/data_file_click_handler.h"
 #include "data/data_photo_media.h"
 #include "data/data_session.h"
@@ -26,13 +25,11 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "history/view/history_view_cursor_state.h"
 #include "history/view/history_view_message.h"
 #include "history/view/history_view_reply.h"
-#include "history/view/history_view_sponsored_click_handler.h"
 #include "history/history.h"
 #include "history/history_item_components.h"
 #include "history/history_item_helpers.h"
 #include "lang/lang_keys.h"
 #include "main/main_session.h"
-#include "menu/menu_sponsored.h"
 #include "ui/chat/chat_style.h"
 #include "ui/painter.h"
 #include "ui/rect.h"
@@ -277,60 +274,7 @@ WebPage::WebPage(
 }
 
 void WebPage::setupAdditionalData() {
-	if (_flags & MediaWebPageFlag::Sponsored) {
-		_additionalData = std::make_unique<AdditionalData>(SponsoredData());
-		const auto raw = sponsoredData();
-		const auto session = &_data->session();
-		const auto id = _parent->data()->fullId();
-		const auto details = session->sponsoredMessages().lookupDetails(id);
-		const auto link = details.link;
-		raw->buttonText = details.buttonText;
-		raw->isLinkInternal = details.isLinkInternal ? 1 : 0;
-		raw->backgroundEmojiId = details.backgroundEmojiId;
-		raw->colorIndex = details.colorIndex;
-		raw->canReport = details.canReport ? 1 : 0;
-		raw->hasMedia = (details.mediaPhotoId || details.mediaDocumentId)
-			? 1
-			: 0;
-		raw->link = std::make_shared<LambdaClickHandler>([=] {
-			session->sponsoredMessages().clicked(id, false, false);
-			UrlClickHandler::Open(link);
-		});
-		if (!_attach) {
-			const auto maybeDocument = details.mediaDocumentId
-				? session->data().document(
-					details.mediaDocumentId).get()
-				: nullptr;
-			const auto maybePhoto = (!maybeDocument && details.mediaPhotoId)
-				? session->data().photo(details.mediaPhotoId).get()
-				: nullptr;
-			_attach = CreateAttach(
-				_parent,
-				maybeDocument,
-				maybePhoto,
-				_collage,
-				_data->url);
-		}
-		if (_attach) {
-			if (_attach->getPhoto()) {
-				raw->mediaLink = std::make_shared<LambdaClickHandler>([=] {
-					session->sponsoredMessages().clicked(id, true, false);
-					UrlClickHandler::Open(link);
-				});
-			} else if (const auto document = _attach->getDocument()) {
-				const auto delegate = _parent->delegate();
-				raw->mediaLink = document->isVideoFile()
-					? std::make_shared<LambdaClickHandler>([=] {
-						session->sponsoredMessages().clicked(id, true, false);
-						delegate->elementOpenDocument(document, id, true);
-					})
-					: std::make_shared<LambdaClickHandler>([=] {
-						session->sponsoredMessages().clicked(id, true, false);
-						UrlClickHandler::Open(link);
-					});
-			}
-		}
-	} else if (_data->stickerSet) {
+	if (_data->stickerSet) {
 		_additionalData = std::make_unique<AdditionalData>(StickerSetData());
 		const auto raw = stickerSetData();
 		for (const auto &sticker : _data->stickerSet->items) {
@@ -499,12 +443,7 @@ QSize WebPage::countOptimalSize() {
 			}
 			return true;
 		}();
-		if (sponsored) {
-			_openl = SponsoredLink(_data->url, sponsored->isLinkInternal);
-			if (sponsored->canReport) {
-				sponsored->hint.link = AboutSponsoredClickHandler();
-			}
-		} else if (factcheck) {
+		if (factcheck) {
 			const auto item = _parent->data();
 			const auto iso2 = LookupFactcheckCountryIso2(item);
 			if (!iso2.isEmpty()) {

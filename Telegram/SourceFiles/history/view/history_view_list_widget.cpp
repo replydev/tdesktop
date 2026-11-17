@@ -90,7 +90,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "boxes/moderate_messages_box.h"
 #include "boxes/premium_preview_box.h"
 #include "boxes/send_gif_with_caption_box.h"
-#include "data/components/sponsored_messages.h"
 #include "data/data_session.h"
 #include "data/data_changes.h"
 #include "data/data_folder.h"
@@ -3582,9 +3581,7 @@ void ListWidget::paintEvent(QPaintEvent *e) {
 				? unreadShown()
 				: yShown(top + height / 2));
 		if (markShown) {
-			if (isSponsored) {
-				session->sponsoredMessages().view(item->fullId());
-			} else if (isUnread) {
+			if (isUnread && !isSponsored) {
 				readTill = item;
 			}
 			if (markingContentRead

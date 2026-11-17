@@ -42,7 +42,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/rect.h"
 #include "ui/screen_reader_mode.h"
 #include "ui/ui_utility.h"
-#include "data/components/sponsored_messages.h"
 #include "data/data_document.h"
 #include "data/data_drafts.h"
 #include "data/data_folder.h"
@@ -78,7 +77,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "main/main_session.h"
 #include "main/main_session_settings.h"
 #include "menu/menu_mark_as_read.h"
-#include "menu/menu_sponsored.h"
 #include "window/notifications_manager.h"
 #include "window/window_controller.h"
 #include "window/window_session_controller.h"
@@ -276,17 +274,11 @@ struct InnerWidget::HashtagResult {
 	BasicRow row;
 };
 
-struct InnerWidget::SponsoredSearchResult {
-	Api::SponsoredSearchResult data;
-	RightButton button;
-};
-
 struct InnerWidget::PeerSearchResult {
 	explicit PeerSearchResult(not_null<PeerData*> peer) : peer(peer) {
 	}
 
 	not_null<PeerData*> peer;
-	std::unique_ptr<SponsoredSearchResult> sponsored;
 	mutable Ui::Text::String name;
 	mutable Ui::PeerBadge badge;
 	BasicRow row;
@@ -332,11 +324,6 @@ InnerWidget::InnerWidget(
 		_chatsFilterTags.clear();
 		_rightButtons.clear();
 		_pressedRightButtonData = nullptr;
-		for (const auto &result : _peerSearchResults) {
-			if (const auto sponsored = result->sponsored.get()) {
-				sponsored->button = {};
-			}
-		}
 	}, lifetime());
 
 	session().downloaderTaskFinished(
@@ -1638,12 +1625,6 @@ void InnerWidget::paintEvent(QPaintEvent *e) {
 				const auto activePeer = activeEntry.key.peer();
 				for (; from < to; ++from) {
 					const auto &result = _peerSearchResults[from];
-					if (result->sponsored
-						&& r.y() <= (skip + from * st::dialogsRowHeight)
-						&& r.y() + r.height() >= (skip + (from + 1) * st::dialogsRowHeight)) {
-						session().sponsoredMessages().view(
-							result->sponsored->data.randomId);
-					}
 					const auto peer = result->peer;
 					const auto active = !activeEntry.fullId
 						&& activePeer
@@ -1654,20 +1635,7 @@ void InnerWidget::paintEvent(QPaintEvent *e) {
 						: isPressed()
 						? _peerSearchPressed
 						: _peerSearchSelected));
-					if (result->sponsored
-						&& result->sponsored->button.text.isEmpty()) {
-						fillRightButton(
-							result->sponsored->button,
-							tr::lng_search_sponsored_button(
-								tr::now,
-								tr::marked),
-							st::dialogsSponsoredButton);
-					}
-
 					paintPeerSearchResult(p, result.get(), {
-						.rightButton = (result->sponsored
-							? &result->sponsored->button
-							: nullptr),
 						.st = &st::defaultDialogRow,
 						.currentBg = currentBg(),
 						.now = ms,
@@ -2479,14 +2447,8 @@ void InnerWidget::selectByMouse(QPoint globalPosition) {
 			if (peerSearchSelected < 0 || peerSearchSelected >= _peerSearchResults.size()) {
 				peerSearchSelected = -1;
 			}
-			const auto mappedY = (peerSearchSelected >= 0)
-				? mouseY - skip - (peerSearchSelected * st::dialogsRowHeight)
-				: 0;
 			const auto selectedRightButton = (peerSearchSelected >= 0)
-				? (_peerSearchResults[peerSearchSelected]->sponsored
-					&& lookupIsInRightButton(
-						_peerSearchResults[peerSearchSelected]->sponsored->button,
-						QPoint(local.x(), mappedY)))
+				? false
 				: _selectedRightButton;
 			if (_peerSearchSelected != peerSearchSelected
 				|| _selectedRightButton != selectedRightButton) {
@@ -3218,8 +3180,6 @@ void InnerWidget::mousePressReleased(
 				if (const auto user = MaybeBotWithApp(row)) {
 					_openBotMainAppRequests.fire(peerToUser(user->id));
 				}
-			} else if (pressedRightButton && peerSearchPressed >= 0) {
-				showSponsoredMenu(peerSearchPressed, globalPosition);
 			} else {
 				chooseRow(
 					modifiers,
@@ -3344,12 +3304,6 @@ void InnerWidget::setPeerSearchPressed(int pressed, bool pressedRightButton) {
 		_peerSearchPressed = pressed;
 		if (pressed >= 0 || !pressedRightButton) {
 			_pressedRightButton = pressedRightButton;
-			if (pressed >= 0 && pressedRightButton) {
-				const auto &entry = _peerSearchResults[pressed];
-				if (entry->sponsored) {
-					_pressedRightButtonData = &entry->sponsored->button;
-				}
-			}
 		}
 	}
 }
@@ -4142,11 +4096,6 @@ bool InnerWidget::showChatPreview() {
 void InnerWidget::chatPreviewShown(bool shown, RowDescriptor row) {
 	_chatPreviewScheduled = false;
 	if (shown) {
-		const auto chosen = computeChosenRow();
-		if (!chosen.sponsoredRandomId.isEmpty() && row.key == chosen.key) {
-			auto &messages = session().sponsoredMessages();
-			messages.clicked(chosen.sponsoredRandomId, false, false);
-		}
 		_chatPreviewRow = row;
 		if (base::take(_chatPreviewTouchGlobal)) {
 			_touchCancelRequests.fire({});
@@ -4273,71 +4222,6 @@ void InnerWidget::contextMenuEvent(QContextMenuEvent *e) {
 	} else {
 		_menu->popup(e->globalPos());
 		e->accept();
-	}
-}
-
-void InnerWidget::showSponsoredMenu(int peerSearchIndex, QPoint globalPos) {
-	_menu = nullptr;
-
-	const auto count = int(_peerSearchResults.size());
-	const auto entry = (peerSearchIndex >= 0 && peerSearchIndex < count)
-		? _peerSearchResults[peerSearchIndex].get()
-		: nullptr;
-	if (!entry || !entry->sponsored) {
-		return;
-	}
-
-	_peerSearchMenu = peerSearchIndex;
-	_menu = base::make_unique_q<Ui::PopupMenu>(
-		this,
-		st::popupMenuExpandedSeparator);
-	const auto peer = entry->peer;
-	const auto remove = crl::guard(this, [=] {
-		_sponsoredRemoved.emplace(peer);
-		if (_pressedRightButtonData) {
-			for (const auto &result : _peerSearchResults) {
-				if (result->peer == peer
-					&& result->sponsored
-					&& _pressedRightButtonData
-						== &result->sponsored->button) {
-					_pressedRightButtonData = nullptr;
-					_pressedRightButton = false;
-					break;
-				}
-			}
-		}
-		_peerSearchResults.erase(
-			ranges::remove(
-				_peerSearchResults,
-				peer,
-				&PeerSearchResult::peer),
-			end(_peerSearchResults));
-		refresh();
-	});
-	Menu::FillSponsored(
-		Ui::Menu::CreateAddActionCallback(_menu),
-		_controller->uiShow(),
-		Menu::SponsoredPhrases::Search,
-		session().sponsoredMessages().lookupDetails(entry->sponsored->data),
-		session().sponsoredMessages().createReportCallback(
-			entry->sponsored->data.randomId,
-			remove));
-	QObject::connect(_menu.get(), &QObject::destroyed, [=] {
-		if (_peerSearchMenu >= 0
-			&& _peerSearchMenu < _peerSearchResults.size()) {
-			const auto index = std::exchange(_peerSearchMenu, -1);
-			updateSearchResult(_peerSearchResults[index]->peer);
-		}
-		const auto globalPosition = QCursor::pos();
-		if (rect().contains(mapFromGlobal(globalPosition))) {
-			setMouseTracking(true);
-			selectByMouse(globalPosition);
-		}
-	});
-	if (_menu->empty()) {
-		_menu = nullptr;
-	} else {
-		_menu->popup(globalPos);
 	}
 }
 
@@ -4662,16 +4546,6 @@ void InnerWidget::clearSearchResults(bool alsoPeerSearchResults) {
 }
 
 void InnerWidget::clearPeerSearchResults() {
-	if (_pressedRightButtonData) {
-		for (const auto &result : _peerSearchResults) {
-			if (result->sponsored
-				&& _pressedRightButtonData == &result->sponsored->button) {
-				_pressedRightButtonData = nullptr;
-				_pressedRightButton = false;
-				break;
-			}
-		}
-	}
 	_peerSearchResults.clear();
 }
 
@@ -5072,8 +4946,7 @@ void InnerWidget::peerSearchReceived(Api::PeerSearchResult result) {
 
 	_peerSearchQuery = result.query.toLower().trimmed();
 	clearPeerSearchResults();
-	_peerSearchResults.reserve(result.peers.size()
-		+ result.sponsored.size());
+	_peerSearchResults.reserve(result.peers.size());
 	for	(const auto &peer : result.my) {
 		appendToFiltered(peer->owner().history(peer));
 	}
@@ -5084,22 +4957,8 @@ void InnerWidget::peerSearchReceived(Api::PeerSearchResult result) {
 		}
 		return false;
 	};
-	auto added = base::flat_set<not_null<PeerData*>>();
-	for (const auto &sponsored : result.sponsored) {
-		const auto peer = sponsored.peer;
-		if (inlist(peer) || _sponsoredRemoved.contains(peer)) {
-			continue;
-		}
-		_peerSearchResults.push_back(
-			std::make_unique<PeerSearchResult>(peer));
-		_peerSearchResults.back()->sponsored
-			= std::make_unique<SponsoredSearchResult>(SponsoredSearchResult{
-				.data = sponsored,
-			});
-		added.emplace(peer);
-	}
 	for (const auto &peer : result.peers) {
-		if (added.contains(peer) || inlist(peer)) {
+		if (inlist(peer)) {
 			continue;
 		}
 		_peerSearchResults.push_back(
@@ -6056,9 +5915,6 @@ ChosenRow InnerWidget::computeChosenRow() const {
 			return {
 				.key = session().data().history(row->peer),
 				.message = Data::UnreadMessagePosition,
-				.sponsoredRandomId = (row->sponsored
-					? row->sponsored->data.randomId
-					: QByteArray()),
 			};
 		} else if (base::in_range(_previewSelected, 0, _previewResults.size())) {
 			const auto result = _previewResults[_previewSelected].get();
@@ -7170,9 +7026,7 @@ QString InnerWidget::accessibilityChildName(int index) const {
 				_filterId);
 		case AccessibilityCohort::PeerSearch: {
 			const auto &r = _peerSearchResults[ref->local];
-			return PeerSearchResultAccessibilityName(
-				r->peer,
-				r->sponsored != nullptr);
+			return PeerSearchResultAccessibilityName(r->peer, false);
 		}
 		case AccessibilityCohort::Preview:
 			return SearchedMessageAccessibilityName(

@@ -235,7 +235,7 @@ This atlas divides Telegram Desktop's sources into named areas, ordered from fou
 - The title bar with typing status, the pinned bar and tracker, contact, business-bot and paid-message bars, group-call and join-request bars, the translate bar and tracker, and topic and sublist tabs, reused by both chat screens and the chats list.
 
 ### history/media — message attachments
-- Paths: `SourceFiles/history/view/media/`, `SourceFiles/history/view/history_view_add_poll_option*`, `SourceFiles/history/view/history_view_sponsored_click_handler*`, `SourceFiles/chat_helpers/ttl_media_layer_widget*`
+- Paths: `SourceFiles/history/view/media/`, `SourceFiles/history/view/history_view_add_poll_option*`, `SourceFiles/chat_helpers/ttl_media_layer_widget*`
 - Everything inside a bubble beyond text: photos, videos, GIFs, round videos, documents, voice, stickers, albums, web pages, polls, to-do lists, locations, games, invoices, calls, and service boxes for gifts, giveaways, suggestions and TON transfers. It must not own playback, downloads or the media viewer.
 
 ### history/compose — chat compose area
@@ -251,7 +251,7 @@ This atlas divides Telegram Desktop's sources into named areas, ordered from fou
 - The Recent actions section of a group or channel: loading admin-log events, turning them into display messages and filtering by action and admin. It must not own shared message rendering.
 
 ### chat-actions — chat and message menus and confirmations
-- Paths: `SourceFiles/menu/`, `SourceFiles/window/window_peer_menu*`, `SourceFiles/history/view/history_view_schedule_box*`, `SourceFiles/boxes/delete_messages_box*`, `SourceFiles/boxes/moderate_messages_box*`, `SourceFiles/boxes/report_messages_box*`, `SourceFiles/boxes/pin_messages_box*`, `SourceFiles/boxes/about_sponsored_box*`
+- Paths: `SourceFiles/menu/`, `SourceFiles/window/window_peer_menu*`, `SourceFiles/history/view/history_view_schedule_box*`, `SourceFiles/boxes/delete_messages_box*`, `SourceFiles/boxes/moderate_messages_box*`, `SourceFiles/boxes/report_messages_box*`, `SourceFiles/boxes/pin_messages_box*`
 - The peer and chat-entry menus with their handlers, send options and scheduling, mute, auto-delete, mark as read, sponsored and per-message menu items, and the delete, moderate, report and pin confirmations. It must not own generic menu widgets.
 
 ### sending — preparing outgoing content
